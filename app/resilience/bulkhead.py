@@ -1,12 +1,11 @@
-"""SEU CÓDIGO: bulkhead.
+"""Bulkhead: limita quantas operações rodam ao mesmo tempo.
 
-Contrato (verificado por tests/test_bulkhead.py):
-- No máximo `max_concurrent` operações executam ao mesmo tempo dentro do bulkhead.
-- Uma chamada que encontra o bulkhead cheio espera uma vaga por até `max_wait` segundos.
-  Se a vaga não aparecer, lança `BulkheadFullError` sem executar a operação.
-- A vaga é devolvida quando a operação termina, com sucesso OU com exceção.
-- O resultado e as exceções da operação passam sem alteração.
+Quem chega com todas as vagas ocupadas espera no máximo `max_wait` segundos.
+Se nenhuma vaga abrir, recebe BulkheadFullError sem executar nada. Sem esse
+limite de espera, o bulkhead seria só mais uma fila infinita.
 """
+
+import asyncio
 
 
 class BulkheadFullError(Exception):
@@ -15,7 +14,18 @@ class BulkheadFullError(Exception):
 
 class Bulkhead:
     def __init__(self, max_concurrent: int, max_wait: float):
-        raise NotImplementedError("implemente Bulkhead")
+        # Um único semáforo para todas as chamadas: é ele que impõe o limite.
+        self._slots = asyncio.Semaphore(max_concurrent)
+        self._max_wait = max_wait
 
     async def call(self, operation):
-        raise NotImplementedError("implemente Bulkhead.call")
+        try:
+            await asyncio.wait_for(self._slots.acquire(), self._max_wait)
+        except TimeoutError as exc:
+            raise BulkheadFullError() from exc
+        try:
+            return await operation()
+        finally:
+            # finally, e não except Exception: a vaga precisa voltar também quando a
+            # operação é cancelada, e CancelledError não herda de Exception.
+            self._slots.release()
