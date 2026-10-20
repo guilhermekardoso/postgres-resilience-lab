@@ -1,4 +1,4 @@
-# Ppostgres Resilience Lab
+# Postgres Resilience Lab
 
 Um laboratório para ver um banco de dados colapsar sob carga e resolver o problema com timeout, bulkhead e circuit breaker, implementados do zero em Python.
 
