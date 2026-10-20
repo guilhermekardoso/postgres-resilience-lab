@@ -1,0 +1,83 @@
+services:
+  postgres:
+    image: postgres:16
+    # Banco propositalmente fraco: pouca CPU e pouca memória.
+    cpus: ${PG_CPUS:-0.5}
+    mem_limit: ${PG_MEM:-256m}
+    restart: unless-stopped
+    command:
+      - postgres
+      - -c
+      - max_connections=${PG_MAX_CONNECTIONS:-30}
+      - -c
+      - shared_buffers=32MB
+      - -c
+      - max_parallel_workers_per_gather=0
+    environment:
+      POSTGRES_DB: lab
+      POSTGRES_USER: lab
+      POSTGRES_PASSWORD: lab
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      # -h 127.0.0.1 força TCP: durante o seed inicial o Postgres só escuta no socket local.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U lab -d lab"]
+      interval: 2s
+      timeout: 2s
+      retries: 120
+
+  api:
+    build: .
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir app
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://lab:lab@postgres:5432/lab
+      # Bind mount no Windows não propaga eventos de arquivo; o reload precisa de polling.
+      WATCHFILES_FORCE_POLLING: "true"
+    volumes:
+      - ./app:/srv/app
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  loadgen:
+    build: .
+    command: uvicorn loadgen.main:app --host 0.0.0.0 --port 8001
+    env_file: .env
+    environment:
+      TARGET_URL: http://api:8000
+    ports:
+      - "127.0.0.1:8001:8001"
+    depends_on:
+      - api
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    command: ["--config.file=/etc/prometheus/prometheus.yml"]
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "127.0.0.1:9090:9090"
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    environment:
+      # Laboratório local: entra direto, sem tela de login.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/provisioning/dashboards/json/lab.json
+    volumes:
+      - ./observability/grafana:/etc/grafana/provisioning:ro
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - prometheus
+
+volumes:
+  pgdata:

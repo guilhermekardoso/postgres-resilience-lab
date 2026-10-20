@@ -1,0 +1,9 @@
+global:
+  scrape_interval: 2s
+scrape_configs:
+  - job_name: api
+    static_configs:
+      - targets: ["api:8000"]
+  - job_name: loadgen
+    static_configs:
+      - targets: ["loadgen:8001"]
