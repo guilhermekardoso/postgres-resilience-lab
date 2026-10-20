@@ -1,4 +1,4 @@
-# Circuit Breaker Lab: desafio
+# Postgres Resilience Lab: desafio
 
 Ambiente pronto para **implementar à mão** timeout, bulkhead e circuit breaker em Python (FastAPI + asyncpg) e ver o efeito de cada peça num banco que realmente não aguenta a carga.
 
