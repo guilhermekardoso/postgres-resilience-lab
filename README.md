@@ -1,8 +1,10 @@
-# Circuit Breaker Lab
+# Circuit Breaker Lab: desafio
 
 Ambiente pronto para **implementar à mão** timeout, bulkhead e circuit breaker em Python (FastAPI + asyncpg) e ver o efeito de cada peça num banco que realmente não aguenta a carga.
 
-A infraestrutura já está pronta. A lógica de resiliência fica por sua conta.
+A infraestrutura já está pronta. A lógica de resiliência fica por sua conta: os arquivos de `app/resilience/` começam vazios, com o contrato de cada peça escrito no topo, e 31 testes dizem quando está pronto.
+
+> Esta é a branch `challenge`. Uma solução completa, com o experimento documentado, está na branch [`solution`](../../tree/solution). Vale tentar antes de olhar, e não existe uma única resposta certa: outras composições, outros critérios de abertura e outras formas de medir são bem-vindos.
 
 ## O cenário
 
